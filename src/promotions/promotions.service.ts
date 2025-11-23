@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { generateCode } from '../utils/code-generator';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
@@ -39,7 +39,7 @@ export class PromotionsService {
   }
 
   findAll() {
-    return this.promotionsRepository.find();
+    return this.promotionsRepository.find({ where: { deletedAt: IsNull() } });
   }
 
   async findAvailable() {
@@ -47,6 +47,7 @@ export class PromotionsService {
     return this.promotionsRepository
       .createQueryBuilder('promotion')
       .where('promotion.expirationDate > :now', { now })
+      .andWhere('promotion.deletedAt IS NULL')
       .andWhere('promotion.usageCount < promotion.usageLimit')
       .orderBy('promotion.expirationDate', 'ASC')
       .getMany();
@@ -54,7 +55,7 @@ export class PromotionsService {
 
   async findOne(id: string) {
     const promotion = await this.promotionsRepository.findOne({
-      where: { id },
+      where: { id, deletedAt: IsNull() },
     });
     if (!promotion) {
       throw new NotFoundException('Promotion not found');
@@ -66,10 +67,13 @@ export class PromotionsService {
     const repo = manager
       ? manager.getRepository(Promotion)
       : this.promotionsRepository;
-    return repo.findOne({ where: { code: code.toUpperCase() } });
+    return repo.findOne({
+      where: { code: code.toUpperCase(), deletedAt: IsNull() },
+    });
   }
 
   async update(id: string, updatePromotionDto: UpdatePromotionDto) {
+    await this.findOne(id);
     if (
       updatePromotionDto.eligibleCategories?.length === 0 &&
       updatePromotionDto.eligibleItems?.length === 0
@@ -82,7 +86,7 @@ export class PromotionsService {
     if (updatePromotionDto.code) {
       updatePromotionDto.code = updatePromotionDto.code.toUpperCase();
       const exists = await this.promotionsRepository.findOne({
-        where: { code: updatePromotionDto.code },
+        where: { code: updatePromotionDto.code, deletedAt: IsNull() },
       });
       if (exists && exists.id !== id) {
         throw new BadRequestException('Promotion code already exists');
@@ -113,10 +117,8 @@ export class PromotionsService {
   }
 
   async remove(id: string) {
-    const result = await this.promotionsRepository.delete(id);
-    if (!result.affected) {
-      throw new NotFoundException('Promotion not found');
-    }
+    await this.findOne(id);
+    await this.promotionsRepository.softDelete(id);
   }
 
   async incrementUsage(promotionId: string, manager: EntityManager) {

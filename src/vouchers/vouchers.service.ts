@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
@@ -36,7 +36,7 @@ export class VouchersService {
   }
 
   findAll() {
-    return this.vouchersRepository.find();
+    return this.vouchersRepository.find({ where: { deletedAt: IsNull() } });
   }
 
   async findAvailable() {
@@ -45,13 +45,16 @@ export class VouchersService {
     return this.vouchersRepository
       .createQueryBuilder('voucher')
       .where('voucher.expirationDate > :now', { now })
+      .andWhere('voucher.deletedAt IS NULL')
       .andWhere('voucher.usageCount < voucher.usageLimit')
       .orderBy('voucher.expirationDate', 'ASC')
       .getMany();
   }
 
   async findOne(id: string) {
-    const voucher = await this.vouchersRepository.findOne({ where: { id } });
+    const voucher = await this.vouchersRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
     if (!voucher) {
       throw new NotFoundException('Voucher not found');
     }
@@ -62,14 +65,17 @@ export class VouchersService {
     const repo = manager
       ? manager.getRepository(Voucher)
       : this.vouchersRepository;
-    return repo.findOne({ where: { code: code.toUpperCase() } });
+    return repo.findOne({
+      where: { code: code.toUpperCase(), deletedAt: IsNull() },
+    });
   }
 
   async update(id: string, updateVoucherDto: UpdateVoucherDto) {
+    await this.findOne(id);
     if (updateVoucherDto.code) {
       updateVoucherDto.code = updateVoucherDto.code.toUpperCase();
       const exists = await this.vouchersRepository.findOne({
-        where: { code: updateVoucherDto.code },
+        where: { code: updateVoucherDto.code, deletedAt: IsNull() },
       });
       if (exists && exists.id !== id) {
         throw new BadRequestException('Voucher code already exists');
@@ -92,10 +98,8 @@ export class VouchersService {
   }
 
   async remove(id: string) {
-    const result = await this.vouchersRepository.delete(id);
-    if (!result.affected) {
-      throw new NotFoundException('Voucher not found');
-    }
+    await this.findOne(id);
+    await this.vouchersRepository.softDelete(id);
   }
 
   async incrementUsage(voucherId: string, manager: EntityManager) {

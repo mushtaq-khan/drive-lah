@@ -4,6 +4,7 @@ Backend assessment built with NestJS, TypeORM, and PostgreSQL to manage vouchers
 
 ## Features
 - CRUD APIs for vouchers and promotions with validation rules (expiry, usage limits, min order value, eligible categories/items).
+- Soft delete on vouchers/promotions so inactive codes are hidden but retain historical references.
 - Apply endpoint that enforces business constraints:
   - Prevents reuse of the same code within one order.
   - Rejects expired or fully-used discounts.
