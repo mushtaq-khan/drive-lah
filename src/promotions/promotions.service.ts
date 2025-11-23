@@ -34,6 +34,7 @@ export class PromotionsService {
       eligibleItems: this.normalize(createPromotionDto.eligibleItems),
       expirationDate: new Date(createPromotionDto.expirationDate),
     });
+    this.ensureExpirationInFuture(promotion.expirationDate);
 
     return this.promotionsRepository.save(promotion);
   }
@@ -74,6 +75,11 @@ export class PromotionsService {
 
   async update(id: string, updatePromotionDto: UpdatePromotionDto) {
     await this.findOne(id);
+    if (updatePromotionDto.expirationDate) {
+      this.ensureExpirationInFuture(
+        new Date(updatePromotionDto.expirationDate),
+      );
+    }
     if (
       updatePromotionDto.eligibleCategories?.length === 0 &&
       updatePromotionDto.eligibleItems?.length === 0
@@ -119,6 +125,12 @@ export class PromotionsService {
   async remove(id: string) {
     await this.findOne(id);
     await this.promotionsRepository.softDelete(id);
+  }
+
+  private ensureExpirationInFuture(expirationDate: Date) {
+    if (expirationDate.getTime() <= Date.now()) {
+      throw new BadRequestException('Expiration date must be in the future');
+    }
   }
 
   async incrementUsage(promotionId: string, manager: EntityManager) {

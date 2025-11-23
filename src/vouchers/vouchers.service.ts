@@ -31,6 +31,7 @@ export class VouchersService {
       code,
       expirationDate: new Date(createVoucherDto.expirationDate),
     });
+    this.ensureExpirationInFuture(voucher.expirationDate);
 
     return this.vouchersRepository.save(voucher);
   }
@@ -72,6 +73,9 @@ export class VouchersService {
 
   async update(id: string, updateVoucherDto: UpdateVoucherDto) {
     await this.findOne(id);
+    if (updateVoucherDto.expirationDate) {
+      this.ensureExpirationInFuture(new Date(updateVoucherDto.expirationDate));
+    }
     if (updateVoucherDto.code) {
       updateVoucherDto.code = updateVoucherDto.code.toUpperCase();
       const exists = await this.vouchersRepository.findOne({
@@ -100,6 +104,12 @@ export class VouchersService {
   async remove(id: string) {
     await this.findOne(id);
     await this.vouchersRepository.softDelete(id);
+  }
+
+  private ensureExpirationInFuture(expirationDate: Date) {
+    if (expirationDate.getTime() <= Date.now()) {
+      throw new BadRequestException('Expiration date must be in the future');
+    }
   }
 
   async incrementUsage(voucherId: string, manager: EntityManager) {

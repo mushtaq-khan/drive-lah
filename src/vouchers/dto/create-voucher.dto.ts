@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { DiscountType } from '../../common/enums/discount-type.enum';
+import { IsFutureDate } from '../../common/validators/future-date.validator';
 
 export class CreateVoucherDto {
   @ApiPropertyOptional({ description: 'Provide to use a custom voucher code' })
@@ -30,6 +31,7 @@ export class CreateVoucherDto {
 
   @ApiProperty()
   @IsDateString()
+  @IsFutureDate({ message: 'expirationDate must be in the future' })
   expirationDate: string;
 
   @ApiProperty()

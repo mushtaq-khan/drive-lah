@@ -13,6 +13,7 @@ import {
   Min,
 } from 'class-validator';
 import { DiscountType } from '../../common/enums/discount-type.enum';
+import { IsFutureDate } from '../../common/validators/future-date.validator';
 
 export class CreatePromotionDto {
   @ApiPropertyOptional()
@@ -47,6 +48,7 @@ export class CreatePromotionDto {
 
   @ApiProperty()
   @IsDateString()
+  @IsFutureDate({ message: 'expirationDate must be in the future' })
   expirationDate: string;
 
   @ApiProperty()
